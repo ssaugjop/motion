@@ -1,0 +1,9 @@
+node_modules/
+out/
+uploads/
+sfx_cache/
+public/m_*
+public/audio/*.mp3
+public/audio/.sig
+cloudflared
+*.log

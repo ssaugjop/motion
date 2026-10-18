@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================================
-#  SA Motion Studio v8.2  —  GitHub Codespaces / Lightning AI / Colab Edition
+#  SA Motion Studio v9.0  —  GitHub Codespaces / Lightning AI / Colab Edition
 #  Remotion 4 + React 19 + Flask + faster-whisper + ffmpeg
 #  يعمل في أي بيئة تلقائياً مع إصلاح الصلاحيات، المسارات، والرندر بدون أخطاء.
 # ============================================================================
@@ -21,7 +21,7 @@ def sh(cmd, cwd=None):
     r = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
-print("🎬 جاري بناء وتجهيز SA Motion Studio v8.2 ...")
+print("🎬 جاري بناء وتجهيز SA Motion Studio v9.0 ...")
 for pat in ["python3 [a]pp.py", "[c]loudflared tunnel", "[r]ender.cjs", "[c]hrome-headless-shell"]:
     subprocess.run(["pkill", "-f", pat], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1)
@@ -265,8 +265,9 @@ textarea.code{flex:1;background:#0d0e11;border:none;outline:none;resize:none;pad
  .nav button.on{color:var(--ac)}.nav button.on::before{content:'';position:absolute;top:0;left:28%;right:28%;height:2px;background:var(--ac);border-radius:0 0 3px 3px}
  .in,.btn{font-size:16px}.log{height:130px}}
 </style></head><body>
-<div class="top"><div class="brand"><img src="/icon.svg" alt="">SA Motion Studio <small>v8.2</small></div>
+<div class="top"><div class="brand"><img src="/icon.svg" alt="">SA Motion Studio <small>v9.0</small></div>
 <div class="tright"><button class="iconbtn" id="diagBtn" type="button" title="فحص النظام"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>فحص النظام</span></button>
+<button class="iconbtn" id="cleanBtn" type="button" title="تنظيف الملفات المؤقتة"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span>تنظيف</span></button>
 <div class="status"><span class="dot" id="dot"></span><span id="stxt">جاهز</span></div></div></div>
 <div class="app">
 <div class="panel act" id="p-setup"><div class="ph"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>الإعداد والوسائط</div><div class="scroll">
@@ -464,14 +465,18 @@ async function runJob(mode){if(S.job||S.starting)return;if(!code.value.trim())re
  try{const r=await postJ('/api/render',body);const {job_id}=await r.json();S.job=job_id;S.starting=false;
   const res=await waitJob(job_id,j=>{const p=j.progress||0;$('ovT').textContent=j.stage||'';$('ovF').style.width=p+'%';$('ovP').textContent=p+'%';$('ovD').textContent=j.details||''});
   if(res.notes&&res.notes.length&&res.fixed_code){code.value=res.fixed_code;save();res.notes.forEach(n=>log('إصلاح تلقائي: '+n,'h'))}
+  (res.warnings||[]).forEach(w=>log('تنبيه: '+w,'h'));
   if(mode==='still'){const im=$('still');im.src=res.url+'?t='+Date.now();im.style.display='block';$('vid').style.display='none';$('empty').style.display='none';log('اللقطة جاهزة','s')}
-  else{const v=$('vid');v.style.display='block';$('still').style.display='none';$('empty').style.display='none';fetch(res.url+'?t='+Date.now()).then(r=>r.blob()).then(b=>{if(v.dataset.blob)URL.revokeObjectURL(v.dataset.blob);const u=URL.createObjectURL(b);v.dataset.blob=u;v.src=u;v.load();v.play().catch(()=>{});}).catch(()=>{v.src=res.url+'?t='+Date.now();v.load();v.play().catch(()=>{});});
+  else{const v=$('vid');v.src=res.url+'?t='+Date.now();v.style.display='block';$('still').style.display='none';$('empty').style.display='none';v.play().catch(()=>{});
    $('dl').href=res.url+'?dl=1';$('dl').style.display='flex';(res.sfx_used||[]).forEach(s=>log(`مؤثر ${s.kind} @${s.t.toFixed(2)}s ← ${s.source}`,'i'));
    log(`اكتمل في ${((Date.now()-t0)/1000).toFixed(0)}ث · ${res.size_mb}MB`,'s')}
- }catch(e){log(e.message,'e');(e.logs||[]).forEach(l=>log('console: '+l,'e'))}
+ }catch(e){log(e.message,'e');(e.logs||[]).forEach(l=>log('console: '+l,'e'));if(/MEDIA_MISSING/.test(e.message)){clearMedia();refreshLib()}}
  $('ov').style.display='none';busy(false);status('جاهز');S.job=null;S.starting=false}
 $('renderBtn').onclick=()=>runJob('video');$('stillBtn').onclick=()=>runJob('still');
 $('cancelBtn').onclick=()=>{if(S.job){$('cancelBtn').disabled=true;$('ovT').textContent='جارٍ الإلغاء...';fetch('/api/cancel/'+S.job,{method:'POST'}).catch(()=>{})}};
+$('cleanBtn').onclick=async()=>{if(!confirm('تنظيف الملفات المؤقتة والفيديوهات المصدّرة القديمة؟'))return;
+ const wipe=confirm('هل تريد أيضاً حذف الوسائط المرفوعة (المقاطع والصوت) من المكتبة؟\nموافق = احذفها · إلغاء = أبقِها');
+ status('تنظيف',1);try{const r=await (await postJ('/api/cleanup',{media:wipe})).json();log(`تم التنظيف: تحرير ${r.freed_mb}MB · ${r.removed} عنصر`,'s');if(wipe)clearMedia();refreshLib()}catch(e){log('فشل التنظيف: '+e.message,'e')}status('جاهز')};
 $('diagBtn').onclick=async()=>{status('فحص النظام',1);
  try{const d=await (await api('/api/diag')).json();
   log(`النظام: v${d.version} · Node ${d.node} · ${d.ffmpeg}`,'h');
@@ -487,7 +492,7 @@ open('index.html', 'w', encoding='utf-8').write(HTML)
 
 # ===================== مكتبة المكونات SA Kit =====================
 KIT = r'''import React from "react";
-import { AbsoluteFill, Easing, Loop, OffthreadVideo, Sequence, interpolate, random, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Loop, OffthreadVideo, Sequence, interpolate, random, spring, staticFile, useCurrentFrame, useVideoConfig, getInputProps } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Cairo";
 
 let fam = "Cairo";
@@ -497,6 +502,22 @@ export const FONT = `${fam}, "Noto Sans Arabic", "Noto Naskh Arabic", "Noto Colo
 export type Word = { text: string; start: number; end: number };
 export type Seg = { text: string; start: number; end: number; words: Word[] };
 export type MediaProps = { mediaSrc?: string | null; mediaType?: string | null; mediaDuration?: number; segments?: Seg[]; words?: Word[]; duration?: number };
+
+// يجمع الوسائط من خصائص المكوّن أو مباشرة من inputProps — يعمل حتى لو لم يمرّرها كود التصميم
+export const useSAMedia = (p?: MediaProps): MediaProps => {
+  let inp: any = {};
+  try { inp = getInputProps() || {}; } catch (e) {}
+  const q: any = p || {};
+  const src = q.mediaSrc || q.videoSrc || q.audioSrc || q.src || inp.mediaSrc || null;
+  return {
+    mediaSrc: src,
+    mediaType: q.mediaType || inp.mediaType || null,
+    mediaDuration: q.mediaDuration || inp.mediaDuration || 0,
+    segments: (q.segments && q.segments.length ? q.segments : inp.segments) || [],
+    words: (q.words && q.words.length ? q.words : inp.words) || [],
+    duration: q.duration || inp.duration,
+  };
+};
 
 export const SA = { bg: "#05060a", a: "#ff6a3d", b: "#ffd60a", c: "#00e5ff", d: "#b46bff", e: "#ff3d7f", g: "#7cff6b", w: "#f6f1e8", mute: "rgba(246,241,232,.66)" };
 export const ease = Easing.bezier(0.16, 1, 0.3, 1);
@@ -575,16 +596,19 @@ export const VideoBg: React.FC<{ src?: string | null; type?: string | null; medi
   );
 };
 
-export const Stage: React.FC<{ media?: MediaProps; colors?: string[]; grid?: boolean; dim?: number; children?: React.ReactNode }> = ({ media = {}, colors, grid = true, dim = 0.45, children }) => (
+export const Stage: React.FC<{ media?: MediaProps; colors?: string[]; grid?: boolean; dim?: number; children?: React.ReactNode }> = ({ media, colors, grid = true, dim = 0.45, children }) => {
+  const mm = useSAMedia(media);
+  return (
   <AbsoluteFill style={{ background: SA.bg, fontFamily: FONT }}>
-    <VideoBg src={media.mediaSrc} type={media.mediaType} mediaDuration={media.mediaDuration} dim={dim} colors={colors} />
+    <VideoBg src={mm.mediaSrc} type={mm.mediaType} mediaDuration={mm.mediaDuration} dim={dim} colors={colors} />
     {grid && <Grid />}
     <Particles n={34} />
     {children}
     <Vignette />
     <Grain />
   </AbsoluteFill>
-);
+  );
+};
 
 export const Kinetic: React.FC<{ text: string; color?: string; size?: number; delay?: number; stagger?: number; hl?: number[]; hlColor?: string; style?: React.CSSProperties }> = ({ text, color = SA.w, size = 0.13, delay = 0, stagger = 5, hl = [], hlColor = SA.b, style }) => {
   const f = useCurrentFrame(); const { fps, width, height } = useVideoConfig(); const m = Math.min(width, height);
@@ -755,7 +779,8 @@ export const autoEmoji = (text: string): string | null => {
   return null;
 };
 
-export const Captions: React.FC<{ segments?: Seg[]; variant?: "pill" | "outline" | "karaoke"; anchor?: "center" | "bottom"; size?: number; palette?: string[]; emoji?: boolean }> = ({ segments = [], variant = "pill", anchor = "center", size = 0.1, palette = [SA.b, SA.c, SA.e, SA.g], emoji = true }) => {
+export const Captions: React.FC<{ segments?: Seg[]; variant?: "pill" | "outline" | "karaoke"; anchor?: "center" | "bottom"; size?: number; palette?: string[]; emoji?: boolean }> = ({ segments: segIn, variant = "pill", anchor = "center", size = 0.1, palette = [SA.b, SA.c, SA.e, SA.g], emoji = true }) => {
+  const segments: Seg[] = (segIn && segIn.length ? segIn : useSAMedia().segments) || [];
   const frame = useCurrentFrame(); const { fps, width, height } = useVideoConfig(); const m = Math.min(width, height); const t = frame / fps;
   const idx = segments.findIndex((s, i) => t >= s.start - 0.05 && t < (segments[i + 1] ? segments[i + 1].start - 0.05 : s.end + 0.6));
   if (idx < 0) return null;
@@ -925,7 +950,7 @@ export const Motion: React.FC<MediaProps> = (props) => {
   return (
     <Stage media={props} colors={[SA.c, SA.e, SA.d]} dim={0.5}>
       <Captions segments={segments} variant="pill" anchor="center" size={0.105} />
-      {!segments.length ? <Hint text="ارفع ملفاً واضغط «تفريغ الصوت» لتظهر الترجمة هنا" /> : null}
+      {!segments.length ? <Hint text={props.mediaSrc ? "اضغط «تفريغ الصوت» لتظهر الترجمة هنا" : "ارفع ملفاً ثم اضغط «تفريغ الصوت» لتظهر الترجمة هنا"} /> : null}
       <ProgressBar color={SA.c} />
     </Stage>
   );
@@ -934,9 +959,10 @@ export const Motion: React.FC<MediaProps> = (props) => {
 
 TPL_VIDEO = r'''import React from "react";
 import { AbsoluteFill, interpolate, random, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { Aurora, Captions, Grain, Hint, LightLeak, MediaVideo, ProgressBar, SA, Vignette, FONT, clampOpts, MediaProps } from "./sa_kit";
+import { Aurora, Captions, Grain, Hint, LightLeak, MediaVideo, ProgressBar, SA, Vignette, FONT, clampOpts, MediaProps, useSAMedia } from "./sa_kit";
 
-export const Motion: React.FC<MediaProps> = (props) => {
+export const Motion: React.FC<MediaProps> = (propsIn) => {
+  const props = useSAMedia(propsIn);
   const frame = useCurrentFrame(); const { fps, width, height, durationInFrames } = useVideoConfig();
   const m = Math.min(width, height); const t = frame / fps;
   const segments = props.segments || [];
@@ -965,7 +991,7 @@ export const Motion: React.FC<MediaProps> = (props) => {
       <Captions segments={segments} variant="outline" anchor="bottom" size={0.085} />
       <Grain opacity={0.05} />
       <ProgressBar color={SA.b} />
-      {!hasVideo ? <Hint text="ارفع مقطع فيديو أولاً ثم فرّغ الصوت" /> : null}
+      {!props.mediaSrc ? <Hint text="ارفع مقطع فيديو أولاً ثم فرّغ الصوت" /> : (!segments.length ? <Hint text="اضغط «تفريغ الصوت» لتظهر الترجمة" /> : null)}
     </AbsoluteFill>
   );
 };
@@ -980,7 +1006,7 @@ from flask import Flask, request, jsonify, send_file, send_from_directory, abort
 import requests
 
 W = os.path.abspath(os.path.dirname(__file__))
-VERSION = "8.2"
+VERSION = "9.0"
 app = Flask(__name__)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 app.config["MAX_CONTENT_LENGTH"] = 80 * 1024 * 1024
@@ -1037,18 +1063,102 @@ MEDIA = load_meta()
 def job(**kw):
     jid = uuid.uuid4().hex[:12]; JOBS[jid] = {"status": "processing", "progress": 0, "created": time.time(), **kw}; return jid
 
-def cleanup( wipe_out=False ):
-    now = time.time()
-    for k in [k for k, j in list(JOBS.items()) if j.get("status") != "processing" and (wipe_out or now - j.get("created", now) > 600)]:
+TTL_MEDIA_H = float(os.environ.get("SA_MEDIA_TTL_H", "24"))
+TTL_OUT_H = float(os.environ.get("SA_OUT_TTL_H", "6"))
+SFX_CACHE_MAX = 60 * 1024 * 1024
+
+def _fsize(p):
+    try:
+        if os.path.isdir(p) and not os.path.islink(p):
+            tot = 0
+            for r, _, fs in os.walk(p):
+                for f in fs:
+                    try: tot += os.path.getsize(os.path.join(r, f))
+                    except OSError: pass
+            return tot
+        return os.path.getsize(p)
+    except OSError:
+        return 0
+
+def _rm(p):
+    s = _fsize(p)
+    try:
+        if os.path.isdir(p) and not os.path.islink(p): shutil.rmtree(p, ignore_errors=True)
+        else: os.remove(p)
+    except OSError:
+        return 0
+    return s
+
+def _age(p, now):
+    try: return now - os.path.getmtime(p)
+    except OSError: return 0
+
+def render_busy():
+    return any(j.get("status") == "processing" and j.get("kind") == "render" for j in list(JOBS.values()))
+
+def tidy(full=False, wipe_media=False):
+    """ينظّف كل ما ليس أساسياً: مخرجات قديمة، ملفات رفع مؤقتة، وسائط منتهية، كاش، مجلدات tmp."""
+    now, freed, cnt = time.time(), 0, 0
+    busy = render_busy()
+    working = busy or bool(RECV) or any(j.get("status") == "processing" for j in list(JOBS.values()))
+    keep = {j.get("media") for j in list(JOBS.values()) if j.get("status") == "processing" and j.get("media")}
+    def kill(p):
+        nonlocal freed, cnt
+        freed += _rm(p); cnt += 1
+    for k in [k for k, j in list(JOBS.items()) if now - j.get("created", now) > 3 * 3600 and j.get("status") != "processing"]:
         JOBS.pop(k, None)
-    for pat in (f"{W}/out/*.mp4", f"{W}/out/*.jpg", f"{W}/uploads/*.part", f"{W}/uploads/raw_*"):
-        for f in glob.glob(pat):
-            try:
-                if wipe_out or now - os.path.getmtime(f) > 600: os.remove(f)
-            except Exception: pass
+    for uid in [u for u, jid in list(UPLOADS.items()) if jid not in JOBS]:
+        UPLOADS.pop(uid, None)
+    for pat in ("*.mp4", "*.jpg", "*_spec.json"):
+        for f in glob.glob(f"{W}/out/{pat}"):
+            a = _age(f, now)
+            if a > 600 and (a > TTL_OUT_H * 3600 or (full and not busy)): kill(f)
     for d in glob.glob(f"{W}/out/*_pub"):
-        try: shutil.rmtree(d, ignore_errors=True)
-        except Exception: pass
+        a = _age(d, now)
+        if (not busy and (a > 3600 or full)) or a > 3 * 3600: kill(d)
+    if not working:
+        for pat, ttl in ((f"{W}/uploads/*.part", 6 * 3600), (f"{W}/uploads/raw_*", 2 * 3600), (f"{W}/uploads/chk_*", 600), (f"{W}/uploads/*_cut.*", 2 * 3600)):
+            for f in glob.glob(pat):
+                if full or _age(f, now) > ttl: kill(f)
+    changed = False
+    for name, rec in list(MEDIA.items()):
+        base = name.rsplit(".", 1)[0]
+        if not os.path.exists(f"{W}/public/{name}"):
+            MEDIA.pop(name, None); changed = True; kill(f"{W}/uploads/{base}_asr.wav"); continue
+        last = max(rec.get("created", now), rec.get("used", 0))
+        if name not in keep and not working and (wipe_media or now - last > TTL_MEDIA_H * 3600):
+            kill(f"{W}/public/{name}"); kill(f"{W}/uploads/{base}_asr.wav"); MEDIA.pop(name, None); changed = True
+    if changed: save_meta(MEDIA)
+    if not working:
+        for f in glob.glob(f"{W}/public/m_*"):
+            if os.path.basename(f) not in MEDIA and _age(f, now) > 3600: kill(f)
+        for f in glob.glob(f"{W}/uploads/m_*_asr.wav"):
+            pre = os.path.basename(f)[:-8]
+            if not any(k.rsplit(".", 1)[0] == pre for k in MEDIA): kill(f)
+    def _mt(f):
+        try: return os.path.getmtime(f)
+        except OSError: return 0
+    files = sorted(glob.glob(f"{W}/sfx_cache/*"), key=_mt)
+    tot = sum(_fsize(f) for f in files)
+    while files and tot > SFX_CACHE_MAX:
+        f = files.pop(0); tot -= _fsize(f); kill(f)
+    for f in files:
+        if _fsize(f) < 1000: kill(f)
+    if not busy:
+        for pat in ("/tmp/remotion-*", "/tmp/react-motion-graphics*", "/tmp/puppeteer_dev_chrome_profile-*"):
+            for f in glob.glob(pat):
+                if full or _age(f, now) > 3600: kill(f)
+    if full and not busy:
+        kill(f"{W}/node_modules/.cache"); kill(f"{W}/__pycache__"); kill(os.path.expanduser("~/.npm/_cacache"))
+    for lf in (f"{W}/server.log", f"{W}/cloudflared.log"):
+        if _fsize(lf) > 5 * 1024 * 1024:
+            try: os.truncate(lf, 0)
+            except OSError: pass
+    return {"freed_mb": round(freed / 1e6, 1), "removed": cnt}
+
+def cleanup():
+    try: tidy()
+    except Exception as e: print("tidy:", e, flush=True)
 
 def probe(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
@@ -1238,13 +1348,6 @@ def finalize_media(J, src, original, base):
     fi = probe(out)
     rec = {"file": os.path.basename(out), "original": original, "type": typ, "duration": fi["duration"],
            "has_audio": fi["has_audio"], "width": fi["width"], "height": fi["height"], "created": time.time()}
-    for old_f in list(MEDIA.keys()):
-        if old_f != rec["file"]:
-            old_b = old_f.rsplit(".", 1)[0]
-            for fp in (f"{W}/public/{old_f}", f"{W}/uploads/{old_b}_asr.wav"):
-                try: os.remove(fp)
-                except Exception: pass
-            MEDIA.pop(old_f, None)
     MEDIA[rec["file"]] = rec; save_meta(MEDIA)
     return rec
 
@@ -1429,15 +1532,26 @@ SFX_QUERY = {"whoosh": "whoosh swoosh transition", "pop": "pop bubble ui", "impa
              "ding": "ding notification bell", "typing": "keyboard typing", "click": "ui click", "bass": "bass drop sub boom", "glitch": "glitch digital",
              "shine": "sparkle shine magic", "tick": "clock tick"}
 
+FS_BASES = ("https://freesound.org/apiv2/search/text/", "https://freesound.org/apiv2/search/")
+
 def fs_search(kind, key):
-    r = requests.get("https://freesound.org/apiv2/search/", timeout=15, params={
-        "query": SFX_QUERY.get(kind, kind), "filter": "duration:[0.1 TO 3]", "sort": "score",
-        "fields": "id,name,previews,username", "page_size": 8, "token": key})
-    if r.status_code != 200:
-        try: det = r.json().get("detail", "")
-        except Exception: det = r.text[:200]
-        raise RuntimeError(f"HTTP {r.status_code} {det}")
-    return r.json().get("results", [])
+    params = {"query": SFX_QUERY.get(kind, kind), "filter": "duration:[0.1 TO 3]", "sort": "score",
+              "fields": "id,name,previews,username", "page_size": 8}
+    last = "لا استجابة"
+    for base in FS_BASES:
+        try:
+            r = requests.get(base, timeout=15, params={**params, "token": key},
+                             headers={"Authorization": "Token " + key, "User-Agent": "SA-Motion-Studio/9"})
+        except requests.RequestException as e:
+            last = f"تعذّر الاتصال: {e}"; continue
+        if r.status_code == 404:
+            last = "HTTP 404"; continue
+        if r.status_code != 200:
+            try: det = r.json().get("detail", "")
+            except Exception: det = r.text[:200]
+            raise RuntimeError(f"HTTP {r.status_code} {det}")
+        return r.json().get("results", [])
+    raise RuntimeError(last)
 
 @app.route("/api/fs_test", methods=["POST"])
 def fs_test():
@@ -1455,8 +1569,13 @@ def local_sfx(kind):
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", SYNTH[kind], "-ar", "48000", "-ac", "2", "-b:a", "192k", p], capture_output=True)
     return p
 
+FS_DOWN = {"until": 0.0, "why": ""}
+
 def get_sfx(kind, key, variant):
     if kind not in SYNTH: kind = "whoosh"
+    key = (key or "").strip()
+    if key and time.time() < FS_DOWN["until"]:
+        return local_sfx(kind), "محلي (Freesound متوقف مؤقتاً: " + FS_DOWN["why"] + ")"
     if key:
         fn = f"{W}/sfx_cache/fs_{kind}_{variant}.mp3"
         if os.path.exists(fn) and os.path.getsize(fn) > 1000: return fn, "Freesound (cache)"
@@ -1464,12 +1583,14 @@ def get_sfx(kind, key, variant):
             res = fs_search(kind, key)
             if res:
                 s = res[variant % len(res)]
-                url = (s.get("previews") or {}).get("preview-hq-mp3")
+                pv = s.get("previews") or {}
+                url = pv.get("preview-hq-mp3") or pv.get("preview-lq-mp3")
                 a = requests.get(url, timeout=20) if url else None
                 if a is not None and a.ok and len(a.content) > 1000:
                     open(fn, "wb").write(a.content); return fn, f"Freesound #{s['id']} by {s['username']}"
             return local_sfx(kind), "محلي (لا نتائج في Freesound)"
         except Exception as e:
+            if re.search(r"HTTP (401|403|429)", str(e)): FS_DOWN.update(until=time.time() + 600, why=str(e)[:80])
             return local_sfx(kind), f"محلي (Freesound: {e})"
     return local_sfx(kind), "مولّد محلياً"
 
@@ -1521,13 +1642,37 @@ def kill_proc(p):
         try: p.kill()
         except Exception: pass
 
-def prepare_public(jid):
+def prepare_public(jid, mfile=None, mtype=None):
     pub = f"{W}/out/{jid}_pub"
     def link(src, dst):
         try: os.link(src, dst)
         except Exception: shutil.copy2(src, dst)
     shutil.copytree(f"{W}/public", pub, copy_function=link, dirs_exist_ok=True)
+    if mfile and os.path.exists(f"{pub}/{mfile}"):
+        ext = os.path.splitext(mfile)[1]
+        for alias in ([f"current_media{ext}"] + (["current_video.mp4"] if mtype == "video" else [])):
+            try: link(f"{pub}/{mfile}", f"{pub}/{alias}")
+            except Exception: pass
     return pub
+
+MEDIA_USE = re.compile(r"mediaSrc|videoSrc|audioSrc|mediaUrl|mediaFile|useSAMedia|MediaVideo|VideoBg|<Stage\b|getInputProps|current_media|current_video|\bm_[a-z0-9]+\.(?:mp4|m4a)")
+
+def code_has_audio(code):
+    """هل كود التصميم نفسه يشغّل صوتاً (Audio أو فيديو غير مكتوم)؟ لتفادي تكرار الصوت عند الدمج."""
+    if re.search(r"<\s*Audio\b", code): return True
+    for tag in re.findall(r"<\s*(?:OffthreadVideo|Video)\b[^>]*>?", code):
+        if not re.search(r"\bmuted\b", tag): return True
+    return False
+
+def media_warnings(code, mfile, mtype, carries, voice_on):
+    w = []
+    if not mfile: return w
+    if carries and voice_on:
+        w.append("الكود يشغّل الصوت بنفسه (Audio/Video) فلم يُدمج صوت الملف تلقائياً لتفادي التكرار.")
+    elif not (MEDIA_USE.search(code) or carries):
+        w.append("كود التصميم لا يقرأ الملف المرفوع (لا mediaSrc ولا Stage/MediaVideo)، لذلك لن يظهر الفيديو داخل التصميم. "
+                 + ("صوت الملف سيُدمج تلقائياً." if voice_on else "ودمج الصوت معطّل أيضاً."))
+    return w
 
 def hint_for(msg):
     h = []
@@ -1571,15 +1716,25 @@ def render_task(jid, d):
     try:
         media = d.get("media") or {}
         mfile = os.path.basename(media.get("file", "") or "")
-        if mfile and not os.path.exists(f"{W}/public/{mfile}"): mfile = ""
-        mdur = float((MEDIA.get(mfile) or {}).get("duration") or media.get("duration") or 0) if mfile else 0
+        if mfile and not os.path.exists(f"{W}/public/{mfile}"):
+            raise RuntimeError("MEDIA_MISSING: الملف المحدد لم يعد موجوداً على الخادم. ارفعه مرة أخرى.")
+        rec = MEDIA.get(mfile) or {}
+        if mfile and rec: rec["used"] = time.time()
+        mdur = float(rec.get("duration") or media.get("duration") or 0) if mfile else 0
+        mtype = (rec.get("type") or media.get("type")) if mfile else None
+        J["media"] = mfile
         props = {"words": d.get("words") or [], "segments": d.get("segments") or [], "mediaSrc": mfile or None,
-                 "mediaType": (MEDIA.get(mfile) or {}).get("type") or media.get("type") if mfile else None, "mediaDuration": mdur, "duration": duration}
+                 "mediaType": mtype, "mediaDuration": mdur, "duration": duration, "hasMedia": bool(mfile)}
+        if mfile:
+            props.update(videoSrc=mfile if mtype == "video" else None, audioSrc=mfile, src=mfile, mediaUrl=mfile, mediaFile=mfile,
+                         media={"src": mfile, "type": mtype, "duration": mdur})
+        carries = code_has_audio(d.get("code", ""))
+        warns = media_warnings(d.get("code", ""), mfile, mtype, carries, bool(d.get("voice", True)))
         J.update(stage="فحص الحزم", progress=1)
         missing = ensure_packages(d.get("code", ""), J)
         J.update(stage="تجهيز الملفات", progress=1)
         if J.get("cancelled"): raise RuntimeError("تم الإلغاء")
-        pub = prepare_public(jid)
+        pub = prepare_public(jid, mfile, mtype)
         if J.get("cancelled"): raise RuntimeError("تم الإلغاء")
         t = num(d.get("time"), 0.0)
         spec = {"root": W, "publicDir": pub, "props": props, "mode": mode, "output": out, "crf": cfg["crf"], "preset": cfg["preset"],
@@ -1594,9 +1749,9 @@ def render_task(jid, d):
             extra = f"\n\nحزم غير متاحة: {', '.join(missing)}" if missing else ""
             raise RuntimeError("خطأ في Remotion:\n" + msg[-4000:] + extra + hint_for(msg))
         if mode == "still":
-            J.update(status="done", progress=100, result={"url": f"/api/still/{jid}", "frame": spec["frame"], "notes": d.get("notes", []), "fixed_code": d.get("fixed_code")}); return
+            J.update(status="done", progress=100, result={"url": f"/api/still/{jid}", "frame": spec["frame"], "notes": d.get("notes", []), "fixed_code": d.get("fixed_code"), "warnings": warns}); return
         J.update(stage="مزج الصوت والمؤثرات", progress=92, details="")
-        voice = f"{W}/public/{mfile}" if (mfile and d.get("voice", True) and media.get("has_audio", True)) else None
+        voice = f"{W}/public/{mfile}" if (mfile and d.get("voice", True) and rec.get("has_audio", media.get("has_audio", True)) and not carries) else None
         sfx, used = [], []
         sc = d.get("sfx") or {}
         try: gvol = max(0.0, min(1.5, float(sc.get("volume", 0.4))))
@@ -1615,7 +1770,7 @@ def render_task(jid, d):
         final = f"{W}/out/{jid}.mp4"
         mix_audio(out, final, duration, voice, sfx)
         J.update(status="done", progress=100, result={"url": f"/api/video/{jid}", "sfx_used": used, "size_mb": round(os.path.getsize(final) / 1e6, 1),
-                                                      "notes": d.get("notes", []), "fixed_code": d.get("fixed_code")})
+                                                      "notes": d.get("notes", []), "fixed_code": d.get("fixed_code"), "warnings": warns})
     except Exception as e:
         J.update(status="error", error=str(e))
     finally:
@@ -1646,7 +1801,7 @@ def pick_component(code):
 
 @app.route("/api/render", methods=["POST"])
 def render():
-    cleanup(wipe_out=True); d = request.json or {}; code = d.get("code", "")
+    d = request.json or {}; code = d.get("code", "")
     if not code.strip(): return "الكود فارغ", 400
     mode = "still" if d.get("mode") == "still" else "video"; c = d.get("config", {}) or {}
     try:
@@ -1661,6 +1816,12 @@ def render():
     if err: return format_err(err, fixed) + "\n\nجرّب زر «فحص وإصلاح» أو أعد تحميل قالب جاهز.", 400
     name, is_def, fixed = pick_component(fixed)
     if not name: return "لم أجد مكوناً مُصدَّراً. اكتب: export const Motion = () => ...", 400
+    mname = os.path.basename((d.get("media") or {}).get("file", "") or "")
+    if mname:
+        if not os.path.exists(f"{W}/public/{mname}"):
+            return "MEDIA_MISSING: الملف المحدد لم يعد موجوداً على الخادم (ربما أُعيد تشغيل الجلسة أو حُذف بالتنظيف التلقائي). ارفعه مرة أخرى.", 400
+        if mname in MEDIA: MEDIA[mname]["used"] = time.time()
+    cleanup()
     with LOCK:
         _now = time.time()
         if any(j["status"] == "processing" and j.get("kind") == "render" and _now - j.get("created", _now) < 4 * 3600 for j in JOBS.values()):
@@ -1696,16 +1857,7 @@ def video(jid):
     if not re.fullmatch(r"[a-f0-9]{12}", jid): abort(404)
     path = f"{W}/out/{jid}.mp4"
     if not os.path.exists(path): abort(404)
-    is_dl = request.args.get("dl") == "1"
-    if is_dl:
-        def _del_later(p):
-            time.sleep(15)
-            try: os.remove(p)
-            except Exception: pass
-        threading.Thread(target=_del_later, args=(path,), daemon=True).start()
-    r = send_file(path, mimetype="video/mp4", conditional=not is_dl, as_attachment=is_dl, download_name=f"SA_Motion_{jid}.mp4")
-    r.headers["Cache-Control"] = "no-store"
-    return r
+    return send_file(path, mimetype="video/mp4", conditional=True, as_attachment=request.args.get("dl") == "1", download_name=f"SA_Motion_{jid}.mp4")
 
 @app.route("/api/still/<jid>")
 def still(jid):
@@ -1714,15 +1866,87 @@ def still(jid):
     if not os.path.exists(path): abort(404)
     return send_file(path, mimetype="image/jpeg")
 
+@app.route("/api/cleanup", methods=["POST"])
+def api_cleanup():
+    wipe = bool((request.json or {}).get("media"))
+    if render_busy(): return "يوجد رندر قيد التنفيذ — انتظر حتى ينتهي ثم أعد التنظيف", 409
+    if wipe and any(j.get("status") == "processing" for j in list(JOBS.values())):
+        return "توجد مهمة قيد التنفيذ (رفع/تفريغ/قص) — انتظر حتى تنتهي", 409
+    return jsonify({"ok": True, **tidy(full=True, wipe_media=wipe)})
+
+@app.route("/api/storage")
+def api_storage():
+    mb = lambda p: round(_fsize(p) / 1e6, 1)
+    return jsonify({"media_mb": mb(f"{W}/public") , "out_mb": mb(f"{W}/out"), "uploads_mb": mb(f"{W}/uploads"), "sfx_cache_mb": mb(f"{W}/sfx_cache"),
+                    "free_gb": round(shutil.disk_usage(W).free / 1e9, 1)})
+
+def _janitor():
+    time.sleep(20)
+    while True:
+        cleanup()
+        time.sleep(1800)
+threading.Thread(target=_janitor, daemon=True).start()
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3847, threaded=True, use_reloader=False)
 '''
 open('app.py', 'w', encoding='utf-8').write(APP)
 
+# ===================== تنظيف وترتيب مساحة العمل =====================
+def tidy_workspace():
+    import glob
+    strict = os.path.isdir("/content") or os.environ.get("SA_STRICT_TIDY") == "1"
+    freed = 0
+    def rm(p):
+        nonlocal freed
+        try:
+            if os.path.isdir(p) and not os.path.islink(p):
+                for r, _, fs in os.walk(p):
+                    for f in fs:
+                        try: freed += os.path.getsize(os.path.join(r, f))
+                        except OSError: pass
+                shutil.rmtree(p, ignore_errors=True)
+            else:
+                freed += os.path.getsize(p); os.remove(p)
+        except OSError:
+            pass
+    if strict:  # مجلد مخصص (كولاب): لا يبقى إلا الأساسي
+        keep_root = {"node_modules", "package.json", "package-lock.json", "src", "public", "out", "uploads", "sfx_cache", "index.html", "app.py",
+                     "render.cjs", "check.cjs", "tsconfig.json", "remotion.config.ts", "sfx_synth.json", "cloudflared", "server.log", "cloudflared.log"}
+        for n in os.listdir(W):
+            if n not in keep_root: rm(f"{W}/{n}")
+        keep_src = {"sa_kit.tsx", "tpl_showcase.tsx", "tpl_captions.tsx", "tpl_videoedit.tsx", "Composition.tsx", "Root.tsx", "index.ts"}
+        for n in os.listdir(f"{W}/src"):
+            if n not in keep_src: rm(f"{W}/src/{n}")
+        for n in os.listdir(f"{W}/public"):
+            if n in ("icon.svg", "audio") or re.fullmatch(r"m_[a-z0-9_]+\.(mp4|m4a)", n): continue
+            rm(f"{W}/public/{n}")
+    rm(f"{W}/__pycache__")
+    for f in glob.glob(f"{W}/out/*"): rm(f)
+    for pat in ("*.part", "raw_*", "chk_*", "*_cut.*", "*.tmp"):
+        for f in glob.glob(f"{W}/uploads/{pat}"): rm(f)
+    try: known = set(json.load(open(f"{W}/uploads/media.json", encoding="utf-8")).keys())
+    except Exception: known = set()
+    for f in glob.glob(f"{W}/public/m_*"):
+        if os.path.basename(f) not in known: rm(f)
+    for f in glob.glob(f"{W}/uploads/m_*_asr.wav"):
+        pre = os.path.basename(f)[:-8]
+        if not any(k.rsplit(".", 1)[0] == pre for k in known): rm(f)
+    for f in glob.glob(f"{W}/sfx_cache/*"):
+        try:
+            if os.path.getsize(f) < 1000: rm(f)
+        except OSError: pass
+    print(f"🧹 تنظيف مساحة العمل: تحرير {freed / 1e6:.1f}MB" + (" (وضع صارم: بقيت الملفات الأساسية فقط)" if strict else ""))
+tidy_workspace()
+
 # ===================== فحص ذاتي للأكواد الجاهزة =====================
 for n in ["sa_kit", "tpl_showcase", "tpl_captions", "tpl_videoedit"]:
     rc, out = sh(f"node check.cjs src/{n}.tsx")
     print(f"  فحص {n}:", "✓" if '"ok":true' in out else "⚠️ " + out[-300:])
+
+if os.environ.get("SA_SETUP_ONLY") == "1":
+    print("✅ تم تجهيز الملفات (وضع التجهيز فقط) — شغّل app.py بنفسك أو عبر خلية كولاب.")
+    sys.exit(0)
 
 # ===================== التشغيل والربط الخارجي =====================
 def server_alive():
@@ -1815,7 +2039,7 @@ try:
 except Exception:
     pass
 
-print("\n" + "=" * 60 + "\n  🎬 SA Motion Studio v8.2 جاهز للعمل")
+print("\n" + "=" * 60 + "\n  🎬 SA Motion Studio v9.0 جاهز للعمل")
 if url: print(f"  🌐 رابط Cloudflare المباشر: {url}")
 if cs_url: print(f"  🐙 رابط GitHub Codespaces:  {cs_url}")
 if alt: print(f"  🔬 رابط Google Colab:       {alt}")
